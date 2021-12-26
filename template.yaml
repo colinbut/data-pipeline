@@ -3,39 +3,61 @@ Transform: AWS::Serverless-2016-10-31
 Description: >
   data-pipeline
 
-  Sample SAM Template for data-pipeline
+  SAM Template for data-pipeline sam app
 
-# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
 Globals:
   Function:
-    Timeout: 3
+    Timeout: 15 # maximum Lambda timeout
 
 Resources:
-  HelloWorldFunction:
-    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+
+  InputBucket:
+    Type: AWS::S3::Bucket
     Properties:
-      CodeUri: hello_world/
+      BucketName: csv-input-bucket-order-data
+
+  DataCleanserFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: data_clenser/
       Handler: app.lambda_handler
       Runtime: python3.9
       Architectures:
         - x86_64
-      Events:
-        HelloWorld:
-          Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
-          Properties:
-            Path: /hello
-            Method: get
+      Environment:
+        Variables:
+          INPUT_BUCKET_NAME: !Ref InputBucket
+          STAGING_BUCKET_NAME: !Ref StagingBucket
+
+  StagingBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: csv-staging-bucket-order-data-cleansed
+
+  DataConverterFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: data_converter/
+      Handler: app.lambda_handler
+      Runtime: python3.9
+      Architectures:
+        - x86_64
+      Environment:
+        Variables:
+          STAGING_BUCKET_NAME: !Ref StagingBucket
+          OUTPUT_BUCKET_NAME: !Ref OutputBucket
+
+  OutputBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: json-output-bucket-order-data
+
+  
 
 Outputs:
-  # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
-  # Find out more about other implicit resources you can reference within SAM
-  # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
-  HelloWorldApi:
-    Description: "API Gateway endpoint URL for Prod stage for Hello World function"
-    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/hello/"
-  HelloWorldFunction:
-    Description: "Hello World Lambda Function ARN"
-    Value: !GetAtt HelloWorldFunction.Arn
-  HelloWorldFunctionIamRole:
-    Description: "Implicit IAM Role created for Hello World function"
-    Value: !GetAtt HelloWorldFunctionRole.Arn
+  DataCleanserFunction:
+    Description: "Data Cleanser Lambda Function ARN"
+    Value: !GetAtt DataCleanserFunction.Arn
+  DataConverterFunction:
+    Description: "Data Converter Lambda Function ARN"
+    Value: !GetAtt DataConverterFunction.Arn
