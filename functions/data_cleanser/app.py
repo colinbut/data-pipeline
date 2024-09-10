@@ -1,6 +1,13 @@
 import json
+import boto3
+import os
 
 # import requests
+
+s3 = boto3.resource('s3')
+
+INPUT_BUCKET = os.environ['INPUT_BUCKET_NAME']
+STAGING_BUCKET = os.environ['STAGING_BUCKET_NAME']
 
 
 def lambda_handler(event, context):
@@ -25,13 +32,7 @@ def lambda_handler(event, context):
         Return doc: https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-lambda-proxy-integrations.html
     """
 
-    # try:
-    #     ip = requests.get("http://checkip.amazonaws.com/")
-    # except requests.RequestException as e:
-    #     # Send some context about this error to Lambda Logs
-    #     print(e)
-
-    #     raise e
+    print(event)
 
     return {
         "statusCode": 200,

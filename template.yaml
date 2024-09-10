@@ -19,7 +19,7 @@ Resources:
   DataCleanserFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: data_clenser/
+      CodeUri: functions/data_cleanser/
       Handler: app.lambda_handler
       Runtime: python3.9
       Architectures:
@@ -28,6 +28,37 @@ Resources:
         Variables:
           INPUT_BUCKET_NAME: !Ref InputBucket
           STAGING_BUCKET_NAME: !Ref StagingBucket
+      Role: !GetAtt DataCleanserFunctionIAMRole.Arn
+
+  DataCleanserFunctionIAMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+               - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 's3:GetBucketNotification'
+                  - 's3:PutBucketNotification'
+                Resource: !Sub 'arn:aws:s3:::${InputBucket}'
+              - Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: 'arn:aws:logs:*:*:*'
 
   StagingBucket:
     Type: AWS::S3::Bucket
@@ -37,7 +68,7 @@ Resources:
   DataConverterFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: data_converter/
+      CodeUri: functions/data_converter/
       Handler: app.lambda_handler
       Runtime: python3.9
       Architectures:
@@ -51,6 +82,30 @@ Resources:
     Type: AWS::S3::Bucket
     Properties:
       BucketName: json-output-bucket-order-data
+
+  CustomResourceLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/custom_resource_s3_notification
+      Handler: app.lambda_handler
+      Runtime: python3.9
+      Role: !GetAtt DataCleanserFunctionIAMRole.Arn
+  
+  LambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt DataCleanserFunction.Arn
+      Action: 'lambda:InvokeFunction'
+      Principal: s3.amazonaws.com
+      SourceAccount: !Ref AWS::AccountId
+      SourceArn: !Sub 'arn:aws:s3:::${InputBucket}'
+  
+  LambdaTrigger:
+    Type: 'Custom::LambdaTrigger'
+    Properties:
+      ServiceToken: !GetAtt CustomResourceLambdaFunction.Arn
+      LambdaArn: !GetAtt DataCleanserFunction.Arn
+      Bucket: !Ref InputBucket
 
   
 
